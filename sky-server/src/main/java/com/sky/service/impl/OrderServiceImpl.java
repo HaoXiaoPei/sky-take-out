@@ -21,6 +21,7 @@ import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderStatisticsVO;
 import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
+import com.sky.websocket.WebSocketServer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Value("${sky.baidu.ak}")
     private String ak;
+
+    @Autowired
+    private WebSocketServer webSocketServer;
     /**
      * 用户下单
      * @param ordersSubmitDTO
@@ -79,7 +83,7 @@ public class OrderServiceImpl implements OrderService {
 
         // 检查用户的收获地址是否超出配送范围
         // TODO 发现bug订单表没有地址，修改方法，下面的参数就是拼接出来的地址，将这个参数提取出来在插入数据的时候set地址即可
-        checkOutOfRange(addressBook.getCityName() + addressBook.getDistrictName() + addressBook.getDetail());
+        //checkOutOfRange(addressBook.getCityName() + addressBook.getDistrictName() + addressBook.getDetail());
 
         //查询当前用户购物车数据
         Long userId = BaseContext.getCurrentId();
@@ -168,7 +172,17 @@ public class OrderServiceImpl implements OrderService {
         Integer OrderStatus = Orders.TO_BE_CONFIRMED;  //订单状态，待接单
         LocalDateTime check_out_time = LocalDateTime.now();//更新支付时间
         orderMapper.updateStatus(OrderStatus, OrderPaidStatus, check_out_time, this.orders.getId());
-                return vo;
+
+        // 通过webSocket向客户端推送消息 type orderId content
+        Map map = new HashMap();
+        map.put("type", 1); // 1表示来单提醒 2表示客户催单
+        map.put("orderId", this.orders.getId());
+        map.put("content", "订单号" + this.orders.getNumber());
+
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
+
+        return vo;
     }
 
     /**
@@ -190,6 +204,16 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+        //因为跳过了支付过程，所以这个方法搬到提交订单后面
+/*        // 通过webSocket向客户端推送消息 type orderId content
+        Map map = new HashMap();
+        map.put("type", 1); // 1表示来单提醒 2表示客户催单
+        map.put("orderId", ordersDB.getId());
+        map.put("content", "订单号" + outTradeNo);
+
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);*/
     }
 
     /**
