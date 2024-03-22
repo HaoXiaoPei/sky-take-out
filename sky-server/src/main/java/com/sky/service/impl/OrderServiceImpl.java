@@ -78,6 +78,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // 检查用户的收获地址是否超出配送范围
+        // TODO 发现bug订单表没有地址，修改方法，下面的参数就是拼接出来的地址，将这个参数提取出来在插入数据的时候set地址即可
         checkOutOfRange(addressBook.getCityName() + addressBook.getDistrictName() + addressBook.getDetail());
 
         //查询当前用户购物车数据
